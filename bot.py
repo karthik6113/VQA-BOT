@@ -1,15 +1,17 @@
 import streamlit as st
-from transformers import BlipProcessor, BlipForQuestionAnswering
+from transformers import ViLTFeatureExtractor, ViLTokenizer, ViLForQuestionAnswering
 from PIL import Image
+import torch
 
-# Load the VQA model and processor
-model_name = "Salesforce/blip-vqa-base"
-processor = BlipProcessor.from_pretrained(model_name)
-model = BlipForQuestionAnswering.from_pretrained(model_name)
+# Load the VQA model and tokenizer
+model_name = "dandelin/vilt-b32-finetuned-vqa"
+feature_extractor = ViLTFeatureExtractor.from_pretrained(model_name)
+tokenizer = ViLTokenizer.from_pretrained(model_name)
+model = ViLForQuestionAnswering.from_pretrained(model_name)
 
 def process_image(image):
-    """Convert image to RGB format"""
-    image = Image.open(image).convert('RGB')
+    """Resize and convert image to a format the model accepts"""
+    image = Image.open(image).convert('RGB').resize((224, 224))
     return image
 
 def main():
@@ -28,17 +30,18 @@ def main():
                 # Process the image
                 image = process_image(uploaded_image)
 
-                # Preprocess text and image using processor
-                inputs = processor(images=image, text=question, return_tensors="pt")
+                # Encode the image and question into features
+                inputs = feature_extractor(images=image, text=question, return_tensors="pt")
 
                 # Perform prediction with the model
-                outputs = model(**inputs)
+                with torch.no_grad():
+                    outputs = model(**inputs)
 
-                # Extract the answer from the model's output
-                answer = processor.decode(outputs.logits.argmax(-1).item()).strip()
-                confidence = outputs.logits.softmax(-1).max().item() * 100
+                # Decode the output to get the answer
+                answer = tokenizer.decode(outputs['answer'][0])
 
-                st.write(f"Answer: {answer} (Confidence: {confidence:.2f}%)")
+                st.write(f"Answer: {answer}")
+
             except Exception as e:
                 st.error(f"An error occurred: {e}")
         else:
