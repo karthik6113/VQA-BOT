@@ -1,8 +1,8 @@
 streamlit
-transformers
-torch
-Pillow
-matplotlib
-numpy
-sounddevice
-librosa
+transformers==4.13.0
+torch==1.10.0
+Pillow==8.4.0
+matplotlib==3.5.0
+numpy==1.22.0
+sounddevice==0.4.2
+librosa==1.1.1
