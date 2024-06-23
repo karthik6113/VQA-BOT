@@ -2,6 +2,8 @@ import streamlit as st
 from transformers import ViLTFeatureExtractor, ViLTokenizer, ViLForQuestionAnswering
 from PIL import Image
 import torch
+import sounddevice as sd
+import numpy as np
 
 # Load the VQA model and tokenizer
 model_name = "dandelin/vilt-b32-finetuned-vqa"
@@ -13,6 +15,22 @@ def process_image(image):
     """Resize and convert image to a format the model accepts"""
     image = Image.open(image).convert('RGB').resize((224, 224))
     return image
+
+def text_to_speech(text):
+    """Convert text to speech using sounddevice"""
+    try:
+        st.write(f"Answer: {text}")
+
+        # Use sounddevice to play audio
+        with sd.OutputStream() as stream:
+            # Convert text to speech audio here (not implemented)
+            # For example, you can use TTS (text-to-speech) libraries like pyttsx3, gTTS, etc.
+            # Replace the following line with the appropriate TTS library usage.
+            audio_data = np.zeros((10000, 2))  # Example placeholder for audio data
+            stream.write(audio_data)
+
+    except Exception as e:
+        st.error(f"Error during audio playback: {e}")
 
 def main():
     st.title("Visual Question Answering Bot")
@@ -40,7 +58,8 @@ def main():
                 # Decode the output to get the answer
                 answer = tokenizer.decode(outputs['answer'][0])
 
-                st.write(f"Answer: {answer}")
+                # Output answer in audio
+                text_to_speech(answer)
 
             except Exception as e:
                 st.error(f"An error occurred: {e}")
