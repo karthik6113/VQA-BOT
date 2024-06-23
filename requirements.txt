@@ -2,5 +2,7 @@ streamlit
 transformers
 torch
 Pillow
+matplotlib
 numpy
 sounddevice
+librosa
