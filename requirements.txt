@@ -15,5 +15,5 @@ tokenizers==0.13.3   # Specify a version that may have prebuilt wheels
 # Add additional tools (install rust if not installed)
 # Instructions to install Rust for building some packages from source
 # Uncomment the following line if you need to ensure Rust is installed
-# !curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+!curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
