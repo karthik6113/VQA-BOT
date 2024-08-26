@@ -1,72 +1,102 @@
 import streamlit as st
-from transformers import ViLTFeatureExtractor, ViLTokenizer, ViLForQuestionAnswering
+from transformers import ViltProcessor, ViltForQuestionAnswering
+import requests
 from PIL import Image
-import torch
-import sounddevice as sd
+import cv2
 import numpy as np
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
+from gtts import gTTS
+import tempfile
+import os
+import warnings
 
-# Load the VQA model and tokenizer
-model_name = "dandelin/vilt-b32-finetuned-vqa"
-feature_extractor = ViLTFeatureExtractor.from_pretrained(model_name)
-tokenizer = ViLTokenizer.from_pretrained(model_name)
-model = ViLForQuestionAnswering.from_pretrained(model_name)
+# Suppress all warnings
+warnings.filterwarnings("ignore")
 
-def process_image(image):
-    """Resize and convert image to a format the model accepts"""
-    image = Image.open(image).convert('RGB').resize((224, 224))
-    return image
+# Initialize the VQA model and processor
+model_name = "dandelin/vilt-b32-finetuned-vqa"#huggingface pretrained model
+processor = ViltProcessor.from_pretrained(model_name)
+model = ViltForQuestionAnswering.from_pretrained(model_name)
 
-def text_to_speech(text):
-    """Convert text to speech using sounddevice"""
-    try:
-        st.write(f"Answer: {text}")
+# Function to process and predict
+def answer_question(image, question):
+    inputs = processor(image, question, return_tensors="pt")
+    outputs = model(**inputs)
+    logits = outputs.logits
+    idx = logits.argmax(-1).item()
+    return model.config.id2label[idx]
 
-        # Use sounddevice to play audio
-        with sd.OutputStream() as stream:
-            # Convert text to speech audio here (not implemented)
-            # For example, you can use TTS (text-to-speech) libraries like pyttsx3, gTTS, etc.
-            # Replace the following line with the appropriate TTS library usage.
-            audio_data = np.zeros((10000, 2))  # Example placeholder for audio data
-            stream.write(audio_data)
+# Function to capture image from webcam
+class VideoProcessor(VideoTransformerBase):
+    def __init__(self):
+        self.frame = None
 
-    except Exception as e:
-        st.error(f"Error during audio playback: {e}")
+    def recv(self, frame):
+        self.frame = frame.to_ndarray(format="bgr24")
+        return frame
 
-def main():
-    st.title("Visual Question Answering Bot")
+# Function to convert text to speech and play it
+def text_to_audio(text):
+    tts = gTTS(text)
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as fp:
+        tts.save(fp.name)
+        st.audio(fp.name, format='audio/mp3')
+        os.remove(fp.name)
 
-    # Upload image section
+# Streamlit app
+st.title("Visual Question Answering Bot")
+
+# Sidebar for input selection
+st.sidebar.title("Input Options")
+input_option = st.sidebar.selectbox("Choose input method:", ["Upload an Image", "Use Webcam", "Image URL"])
+
+# Image placeholder
+image_placeholder = st.empty()
+
+# Question input section
+question = st.text_input("Ask a question about the image:")
+
+# Image handling
+if input_option == "Upload an Image":
     uploaded_image = st.file_uploader("Upload an Image", type=["jpg", "jpeg", "png"])
+    if uploaded_image:
+        image = Image.open(uploaded_image).convert("RGB")
+        image_placeholder.image(image, caption="Uploaded Image", use_column_width=True)
 
-    # Question input section
-    question = st.text_input("Ask a question about the image:")
+elif input_option == "Use Webcam":
+    ctx = webrtc_streamer(key="example", video_processor_factory=VideoProcessor)
+    if ctx.video_processor and ctx.video_processor.frame is not None:
+        image = cv2.cvtColor(ctx.video_processor.frame, cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(image)
+        image_placeholder.image(image, caption="Captured Image", use_column_width=True)
 
-    # Submit button and processing
-    if st.button("Ask") and uploaded_image is not None:
-        if question:
-            try:
-                # Process the image
-                image = process_image(uploaded_image)
+elif input_option == "Image URL":
+    image_url = st.text_input("Enter Image URL:")
+    if image_url:
+        try:
+            image = Image.open(requests.get(image_url, stream=True).raw).convert("RGB")
+            image_placeholder.image(image, caption="Image from URL", use_column_width=True)
+        except:
+            st.error("Invalid URL or unable to load image.")
 
-                # Encode the image and question into features
-                inputs = feature_extractor(images=image, text=question, return_tensors="pt")
-
-                # Perform prediction with the model
-                with torch.no_grad():
-                    outputs = model(**inputs)
-
-                # Decode the output to get the answer
-                answer = tokenizer.decode(outputs['answer'][0])
-
-                # Output answer in audio
-                text_to_speech(answer)
-
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
+# Submit button and processing
+if st.button("Ask"):
+    if question:
+        if 'image' in locals():
+            with st.spinner('Processing...'):
+                try:
+                    answer = answer_question(image, question)
+                    st.write(f"Answer: {answer}")
+                    text_to_audio(f"The answer is: {answer}")
+                except Exception as e:
+                    st.error(f"An error occurred: {e}")
         else:
-            st.write("Please enter a question.")
+            st.write("Please provide an image.")
     else:
-        st.write("Please upload an image and ask a question.")
+        st.write("Please enter a question.")
 
-if __name__ == "__main__":
-    main()
+# Sidebar information
+st.sidebar.info("""
+This app uses the ViLT model from Hugging Face to answer questions about images. 
+You can upload an image, capture an image using your webcam, or provide an image URL.
+""")
