@@ -1,19 +1,8 @@
-# Update pip to the latest version
-pip==24.2
-
-# Required packages
-streamlit==1.25.0
-transformers==4.33.2
-Pillow==9.5.0   # Compatible version that doesn't require Rust
-opencv-python==4.8.1.78
-numpy==1.26.0
-streamlit-webrtc==0.45.0
-gtts==2.3.2
-requests==2.31.0
-tokenizers==0.13.3   # Specify a version that may have prebuilt wheels
-
-# Add additional tools (install rust if not installed)
-# Instructions to install Rust for building some packages from source
-# Uncomment the following line if you need to ensure Rust is installed
-!curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
+streamlit
+transformers
+torch
+Pillow
+opencv-python-headless
+streamlit-webrtc
+gTTS
+requests
